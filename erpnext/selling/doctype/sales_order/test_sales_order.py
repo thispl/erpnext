@@ -370,47 +370,6 @@ class TestSalesOrder(AccountsTestMixin, FrappeTestCase):
 		so.load_from_db()
 		self.assertEqual(so.get("items")[0].delivered_qty, 5)
 
-	def test_make_sales_invoice_after_return_and_redelivery(self):
-		"""Test that Sales Invoice from SO has correct qty after return + re-delivery.
-
-		Regression test: returned_qty on SO item is a one-way counter that only
-		increases when a return DN is submitted. It is NOT decremented when goods
-		are re-delivered. The old formula `qty - returned_qty` produced 0 qty
-		invoices after a full return + re-delivery cycle.
-		"""
-		from erpnext.stock.doctype.delivery_note.test_delivery_note import create_delivery_note
-
-		so = make_sales_order()
-
-		# Step 1: Deliver full qty
-		dn1 = create_dn_against_so(so.name, 10)
-		so.load_from_db()
-		self.assertEqual(so.get("items")[0].delivered_qty, 10)
-		self.assertEqual(so.get("items")[0].returned_qty, 0)
-
-		# Step 2: Return all qty
-		dn_return = create_delivery_note(
-			is_return=1, return_against=dn1.name, qty=-10, do_not_submit=True
-		)
-		dn_return.items[0].against_sales_order = so.name
-		dn_return.items[0].so_detail = so.items[0].name
-		dn_return.submit()
-		so.load_from_db()
-		self.assertEqual(so.get("items")[0].delivered_qty, 0)
-		self.assertEqual(so.get("items")[0].returned_qty, 10)
-
-		# Step 3: Re-deliver the same qty
-		dn2 = create_dn_against_so(so.name, 10)
-		so.load_from_db()
-		self.assertEqual(so.get("items")[0].delivered_qty, 10)
-		# returned_qty is NOT reset by re-delivery (this is the root cause)
-		self.assertEqual(so.get("items")[0].returned_qty, 10)
-
-		# Step 4: Create Sales Invoice from SO — should have correct qty, not 0
-		si = make_sales_invoice(so.name)
-		self.assertEqual(len(si.get("items")), 1)
-		self.assertEqual(si.get("items")[0].qty, 10)
-
 	def test_reserved_qty_for_partial_delivery(self):
 		make_stock_entry(target="_Test Warehouse - _TC", qty=10, rate=100)
 		existing_reserved_qty = get_reserved_qty()

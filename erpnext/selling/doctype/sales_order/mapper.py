@@ -496,7 +496,7 @@ def make_sales_invoice(
 		target.qty = (
 			source.qty - get_billed_qty(source.name)
 			if (source.qty and source.billed_amt)
-			else (source.qty if is_unit_price_row(source) else source.qty - source.returned_qty)
+			else (source.qty if is_unit_price_row(source) else flt(source.delivered_qty) or source.qty - source.returned_qty)
 		)
 
 		if source_parent.project:
